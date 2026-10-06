@@ -1,71 +1,126 @@
 <script>
   import { onMount } from 'svelte';
 
-  // Dataset Transaksi Awal (Realistis Divisi & Kas Welding 2)
-  const defaultTransactions = [
-    { id: 1, tanggal: '2026-09-01', tipe: 'masuk', kategori: 'Kas Masuk', keterangan: 'Saldo Awal Kas Pembukuan Welding 2', nominal: 1850000 },
-    { id: 2, tanggal: '2026-09-03', tipe: 'masuk', kategori: 'Infaq Rutin', keterangan: 'Infaq Rutin Jamaah Welding Shift Pagi', nominal: 320000 },
-    { id: 3, tanggal: '2026-09-05', tipe: 'keluar', kategori: 'Konsumsi', keterangan: 'Konsumsi Rapat Mingguan & Kopi Tim Welding', nominal: 145000 },
-    { id: 4, tanggal: '2026-09-08', tipe: 'masuk', kategori: 'Donatur', keterangan: 'Sumbangan Hamba Allah untuk Operasional', nominal: 500000 },
-    { id: 5, tanggal: '2026-09-12', tipe: 'keluar', kategori: 'Operasional', keterangan: 'Pembelian Gas CO2 & Kawat Las Tambahan', nominal: 420000 },
-    { id: 6, tanggal: '2026-09-15', tipe: 'masuk', kategori: 'Infaq Rutin', keterangan: 'Infaq Rutin Pertengahan Bulan Welding 2', nominal: 410000 },
-    { id: 7, tanggal: '2026-09-18', tipe: 'keluar', kategori: 'Bisyaroh', keterangan: 'Bisyaroh Pengisi Ta\'lim Rutin Majelis', nominal: 300000 },
-    { id: 8, tanggal: '2026-09-22', tipe: 'keluar', kategori: 'Maintenance', keterangan: 'Service & Penggantian Filter Mesin Las', nominal: 275000 },
-    { id: 9, tanggal: '2026-09-26', tipe: 'masuk', kategori: 'Donatur', keterangan: 'Infaq Sukarela Anggota Line Welding B', nominal: 250000 },
-    { id: 10, tanggal: '2026-09-29', tipe: 'keluar', kategori: 'Konsumsi', keterangan: 'Snack & Minuman Penutupan Bulan', nominal: 110000 },
-    { id: 11, tanggal: '2026-10-02', tipe: 'masuk', kategori: 'Infaq Rutin', keterangan: 'Infaq Awal Bulan Oktober Anggota Welding', nominal: 480000 },
-    { id: 12, tanggal: '2026-10-05', tipe: 'keluar', kategori: 'Operasional', keterangan: 'Perlengkapan APD & Sarung Tangan Las', nominal: 185000 }
+  // GOOGLE APPS SCRIPT SPREADSHEET API ENDPOINT RESMI
+  const API_URL = "https://script.google.com/macros/s/AKfycbz5Fi6Qm1v5LepYWFCmiZv9Ap87r7MJFWXD2DMJ8UaHk5jFKC9ljrGvVPBKPFTDGvZQ/exec";
+
+  // Data Awal Bawaan dari Spreadsheet Google (Fallback Instan)
+  const spreadsheetInitialData = [
+    {
+      id: "kas_ihfdqvavv",
+      tanggal: "2026-09-15",
+      kategori: "infaq_rutin",
+      keterangan: "Premi Ags26",
+      nominal: 279000
+    },
+    {
+      id: "kas_j196n552q",
+      tanggal: "2026-09-16",
+      kategori: "konsumsi",
+      keterangan: "Pembelian Gelas Kopi",
+      nominal: 24000
+    },
+    {
+      id: "kas_g5cimnof2",
+      tanggal: "2026-09-17",
+      kategori: "konsumsi",
+      keterangan: "Air minum",
+      nominal: 50000
+    },
+    {
+      id: "kas_0rmookyxm",
+      tanggal: "2026-09-17",
+      kategori: "konsumsi",
+      keterangan: "Pembelian Kopi",
+      nominal: 100000
+    },
+    {
+      id: "kas_xdswcz8y7",
+      tanggal: "2026-09-17",
+      kategori: "konsumsi",
+      keterangan: "Pembelian Snack Sholawat",
+      nominal: 50000
+    },
+    {
+      id: "kas_hxmzzjg96",
+      tanggal: "2026-09-21",
+      kategori: "konsumsi",
+      keterangan: "Pembelian Snack",
+      nominal: 50000
+    },
+    {
+      id: "kas_dgbu89uoo",
+      tanggal: "2026-09-28",
+      kategori: "konsumsi",
+      keterangan: "Pembelian Snack",
+      nominal: 40000
+    }
   ];
 
-  // State Reaktif (Svelte 5 Runes)
-  let transactions = $state([...defaultTransactions]);
+  // Mapping Kategori Spreadsheet
+  const categoryMap = {
+    'infaq_rutin': { label: 'Infaq Sholawat', type: 'masuk', icon: '🕌', color: '#10b981' },
+    'donatur': { label: 'Donatur', type: 'masuk', icon: '🤲', color: '#059669' },
+    'masuk_lain': { label: 'Pemasukan Lain', type: 'masuk', icon: '📥', color: '#3b82f6' },
+    'bisyaroh': { label: 'Bisyaroh Habaib/Guru', type: 'keluar', icon: '👳‍♂️', color: '#8b5cf6' },
+    'konsumsi': { label: 'Konsumsi & Kopi', type: 'keluar', icon: '☕', color: '#f59e0b' },
+    'operasional': { label: 'Operasional Las', type: 'keluar', icon: '⚙️', color: '#ef4444' },
+    'maintenance': { label: 'Service Mesin Las', type: 'keluar', icon: '🛠️', color: '#ec4899' },
+    'sosial': { label: 'Sosial / Santunan', type: 'keluar', icon: '🤝', color: '#14b8a6' }
+  };
+
+  // State Utama Svelte 5
+  let rawKasData = $state([...spreadsheetInitialData]);
   let currentTab = $state('dashboard'); // 'dashboard' | 'preview'
   let searchQuery = $state('');
   let filterMonth = $state('all');
   let filterType = $state('all'); // 'all' | 'masuk' | 'keluar'
+  let isSyncing = $state(false);
+  let lastSyncTime = $state('Sinkronisasi otomatis...');
   let showModal = $state(false);
 
   // Form State Tambah Transaksi
   let formTanggal = $state(new Date().toISOString().split('T')[0]);
   let formTipe = $state('masuk');
-  let formKategori = $state('Infaq Rutin');
+  let formKategori = $state('infaq_rutin');
   let formKeterangan = $state('');
   let formNominal = $state('');
 
-  // Toast Notification
+  // Floating Toast
   let toastMsg = $state('');
   let toastType = $state('success');
   let toastActive = $state(false);
 
-  // Info Dokumen Resmi
+  // Info Dokumen Formal
   let nomorDokumen = $state('WLD/KEU/2026/IX-01');
   let namaKetua = $state('H. Ahmad Syarifuddin');
   let namaBendahara = $state('Muhammad Ridhoku');
   let kotaCetak = $state('Bekasi');
 
-  onMount(() => {
-    const saved = localStorage.getItem('laporan_keuangan_welding_v2');
-    if (saved) {
-      try {
-        const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed) && parsed.length > 0) {
-          transactions = parsed;
-        }
-      } catch (e) {
-        console.error(e);
+  // Normalisasi Tanggal ISO / DD/MM/YYYY
+  function normalizeDate(rawDate) {
+    if (!rawDate) return { ymd: '', display: '-', sortTime: 0, monthKey: '' };
+    let d;
+    if (typeof rawDate === 'string' && rawDate.includes('/')) {
+      const parts = rawDate.split('/');
+      if (parts.length === 3) {
+        d = new Date(Number(parts[2]), Number(parts[1]) - 1, Number(parts[0]));
       }
+    } else {
+      d = new Date(rawDate);
     }
-  });
 
-  function saveData() {
-    localStorage.setItem('laporan_keuangan_welding_v2', JSON.stringify(transactions));
-  }
+    if (!d || isNaN(d.getTime())) {
+      return { ymd: String(rawDate), display: String(rawDate), sortTime: 0, monthKey: '' };
+    }
 
-  function triggerToast(msg, type = 'success') {
-    toastMsg = msg;
-    toastType = type;
-    toastActive = true;
-    setTimeout(() => { toastActive = false; }, 3000);
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    const ymd = `${year}-${month}-${day}`;
+    const monthKey = `${year}-${month}`;
+    const display = d.toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' });
+    return { ymd, display, sortTime: d.getTime(), monthKey };
   }
 
   // Format Helper
@@ -77,136 +132,187 @@
     }).format(val || 0);
   }
 
-  function formatTanggalIndo(dateStr) {
-    if (!dateStr) return '-';
-    try {
-      const p = dateStr.split('-');
-      if (p.length === 3) {
-        const d = new Date(Number(p[0]), Number(p[1]) - 1, Number(p[2]));
-        return d.toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' });
-      }
-      return dateStr;
-    } catch {
-      return dateStr;
-    }
-  }
-
   const tanggalHariIni = new Date().toLocaleDateString('id-ID', {
     day: 'numeric',
     month: 'long',
     year: 'numeric'
   });
 
-  // Kategori Preset Icon & Color
-  const categoryMeta = {
-    'Infaq Rutin': { icon: '🕌', color: '#10b981' },
-    'Donatur': { icon: '🤲', color: '#059669' },
-    'Kas Masuk': { icon: '💼', color: '#3b82f6' },
-    'Penerimaan Lain': { icon: '📥', color: '#6366f1' },
-    'Konsumsi': { icon: '☕', color: '#f59e0b' },
-    'Operasional': { icon: '⚙️', color: '#ef4444' },
-    'Bisyaroh': { icon: '👳', color: '#8b5cf6' },
-    'Maintenance': { icon: '🛠️', color: '#ec4899' },
-    'Sosial': { icon: '🤝', color: '#14b8a6' }
-  };
+  function showToast(msg, type = 'success') {
+    toastMsg = msg;
+    toastType = type;
+    toastActive = true;
+    setTimeout(() => { toastActive = false; }, 3000);
+  }
 
-  // List Bulan Unik
+  // AMBIL DATA DARI SPREADSHEET GOOGLE LIVE
+  async function fetchSpreadsheetData() {
+    isSyncing = true;
+    try {
+      const res = await fetch(API_URL + "?action=getData");
+      const json = await res.json();
+      if (json && json.status === 'success' && Array.isArray(json.data) && json.data.length > 0) {
+        rawKasData = json.data;
+        localStorage.setItem('spreadsheet_kas_cache', JSON.stringify(json.data));
+        lastSyncTime = new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+        showToast(`Sinkronisasi sukses: ${json.data.length} transaksi dimuat`);
+      }
+    } catch (err) {
+      console.warn("Spreadsheet fetch error, using local/fallback data:", err);
+      lastSyncTime = 'Offline (data lokal aktif)';
+    } finally {
+      isSyncing = false;
+    }
+  }
+
+  // KIRIM DATA KE GOOGLE APPS SCRIPT SPREADSHEET
+  async function postToSpreadsheet(payload) {
+    isSyncing = true;
+    try {
+      await fetch(API_URL, {
+        method: 'POST',
+        headers: { "Content-Type": "text/plain;charset=utf-8" },
+        body: JSON.stringify(payload)
+      });
+      lastSyncTime = new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
+    } catch (err) {
+      console.error("Gagal mengirim ke spreadsheet:", err);
+    } finally {
+      isSyncing = false;
+    }
+  }
+
+  onMount(() => {
+    // Load cache lokal terlebih dahulu jika ada
+    const cached = localStorage.getItem('spreadsheet_kas_cache');
+    if (cached) {
+      try {
+        const parsed = JSON.parse(cached);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          rawKasData = parsed;
+        }
+      } catch (e) {
+        console.warn(e);
+      }
+    }
+    // Lalu tarik data live dari spreadsheet
+    fetchSpreadsheetData();
+  });
+
+  // Derived: List Bulan Unik dari data Spreadsheet
   let availableMonths = $derived.by(() => {
     const set = new Set();
-    transactions.forEach(t => {
-      if (t.tanggal && t.tanggal.length >= 7) set.add(t.tanggal.substring(0, 7));
+    rawKasData.forEach(item => {
+      const { monthKey } = normalizeDate(item.tanggal);
+      if (monthKey) set.add(monthKey);
     });
     return Array.from(set).sort().reverse();
   });
 
-  // Filtered & Sorted Data
-  let filteredTransactions = $derived.by(() => {
-    return transactions.filter(t => {
+  // Derived: Olah data transaksi dengan running balance & filter
+  let processedData = $derived.by(() => {
+    // 1. Petakan informasi kategori & tanggal
+    const mapped = rawKasData.map(item => {
+      const catMeta = categoryMap[item.kategori] || categoryMap['masuk_lain'];
+      const dateInfo = normalizeDate(item.tanggal);
+      const tipe = item.tipe || catMeta.type;
+      const nominal = Number(item.nominal) || 0;
+      const masuk = tipe === 'masuk' ? nominal : 0;
+      const keluar = tipe === 'keluar' ? nominal : 0;
+      return {
+        ...item,
+        catLabel: catMeta.label,
+        catIcon: catMeta.icon,
+        catColor: catMeta.color,
+        tipe,
+        nominal,
+        masuk,
+        keluar,
+        ...dateInfo
+      };
+    });
+
+    // 2. Filter data
+    const filtered = mapped.filter(t => {
       const matchSearch = (t.keterangan || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
-                          (t.kategori || '').toLowerCase().includes(searchQuery.toLowerCase());
-      const matchMonth = filterMonth === 'all' || (t.tanggal && t.tanggal.startsWith(filterMonth));
+                          (t.catLabel || '').toLowerCase().includes(searchQuery.toLowerCase());
+      const matchMonth = filterMonth === 'all' || t.monthKey === filterMonth;
       const matchType = filterType === 'all' || t.tipe === filterType;
       return matchSearch && matchMonth && matchType;
     });
-  });
 
-  let processedData = $derived.by(() => {
-    const sorted = [...filteredTransactions].sort((a, b) => new Date(a.tanggal).getTime() - new Date(b.tanggal).getTime());
-    let currentBalance = 0;
-    return sorted.map((item, index) => {
-      const masuk = item.tipe === 'masuk' ? Number(item.nominal) : 0;
-      const keluar = item.tipe === 'keluar' ? Number(item.nominal) : 0;
-      currentBalance += (masuk - keluar);
+    // 3. Urutkan berdasarkan tanggal kronologis & hitung running balance
+    const sorted = [...filtered].sort((a, b) => a.sortTime - b.sortTime);
+    let running = 0;
+    return sorted.map((row, index) => {
+      running += (row.masuk - row.keluar);
       return {
-        ...item,
+        ...row,
         no: index + 1,
-        masuk,
-        keluar,
-        runningBalance: currentBalance
+        runningBalance: running
       };
     });
   });
 
-  // Financial Metrics
-  let totalMasuk = $derived(processedData.reduce((acc, cur) => acc + cur.masuk, 0));
-  let totalKeluar = $derived(processedData.reduce((acc, cur) => acc + cur.keluar, 0));
+  // Metrik Finansial
+  let totalMasuk = $derived(processedData.reduce((acc, c) => acc + c.masuk, 0));
+  let totalKeluar = $derived(processedData.reduce((acc, c) => acc + c.keluar, 0));
   let saldoAkhir = $derived(totalMasuk - totalKeluar);
-  let rasioSurplus = $derived(totalMasuk > 0 ? Math.round(((totalMasuk - totalKeluar) / totalMasuk) * 100) : 0);
-
-  // Visual Donut Chart Percentages
   let totalVolume = $derived(totalMasuk + totalKeluar);
   let masukPercent = $derived(totalVolume > 0 ? (totalMasuk / totalVolume) * 100 : 50);
   let keluarPercent = $derived(totalVolume > 0 ? (totalKeluar / totalVolume) * 100 : 50);
 
   // Label Periode
   let labelPeriode = $derived.by(() => {
-    if (filterMonth === 'all') return 'Seluruh Periode Pembukuan (2026)';
+    if (filterMonth === 'all') return 'Seluruh Periode Pembukuan Spreadsheet';
     const [y, m] = filterMonth.split('-');
     const date = new Date(Number(y), Number(m) - 1, 1);
     return date.toLocaleDateString('id-ID', { month: 'long', year: 'numeric' }).toUpperCase();
   });
 
-  // Quick Chips Nominal
-  function tambahChipNominal(val) {
-    const cur = Number(String(formNominal).replace(/[^0-9]/g, '')) || 0;
-    formNominal = String(cur + val);
-  }
-
+  // Aksi Form Tambah Transaksi
   function submitTambah(e) {
     e.preventDefault();
-    const cleanNom = Number(String(formNominal).replace(/[^0-9]/g, ''));
-    if (!formKeterangan || !cleanNom) {
-      triggerToast('Keterangan dan nominal wajib diisi!', 'error');
+    const cleanNominal = Number(String(formNominal).replace(/[^0-9]/g, ''));
+    if (!formKeterangan || !cleanNominal) {
+      showToast('Keterangan dan nominal harus diisi!', 'error');
       return;
     }
 
-    const newTx = {
-      id: Date.now(),
-      tanggal: formTanggal,
-      tipe: formTipe,
+    const [y, m, d] = formTanggal.split('-');
+    const finalDateStr = `${d}/${m}/${y}`; // format standar spreadsheet lama
+
+    const newId = 'kas_' + Math.random().toString(36).substring(2, 11);
+    const newTrx = {
+      id: newId,
+      tanggal: finalDateStr,
       kategori: formKategori,
       keterangan: formKeterangan,
-      nominal: cleanNom
+      nominal: cleanNominal,
+      tipe: formTipe
     };
 
-    transactions = [...transactions, newTx];
-    saveData();
-    triggerToast('Transaksi berhasil ditambahkan!');
+    // Update state & cache lokal
+    rawKasData = [newTrx, ...rawKasData];
+    localStorage.setItem('spreadsheet_kas_cache', JSON.stringify(rawKasData));
+
+    // Kirim sinkronisasi ke Spreadsheet Google
+    postToSpreadsheet({ action: 'add', ...newTrx });
+
+    showToast('Transaksi baru berhasil dicatat & disinkronkan!');
     formKeterangan = '';
     formNominal = '';
     showModal = false;
   }
 
+  // Aksi Hapus Transaksi
   function hapus(id) {
-    transactions = transactions.filter(t => t.id !== id);
-    saveData();
-    triggerToast('Transaksi dihapus');
-  }
-
-  function resetBawaan() {
-    transactions = [...defaultTransactions];
-    saveData();
-    triggerToast('Data disetel ulang ke contoh default');
+    if (confirm('Hapus transaksi ini dari daftar dan spreadsheet?')) {
+      rawKasData = rawKasData.filter(t => String(t.id) !== String(id));
+      localStorage.setItem('spreadsheet_kas_cache', JSON.stringify(rawKasData));
+      postToSpreadsheet({ action: 'delete', id });
+      showToast('Transaksi dihapus');
+    }
   }
 
   function cetakDokumen() {
@@ -214,30 +320,27 @@
   }
 
   function salinWA() {
-    let teks = `📊 *LAPORAN REKAPITULASI KEUANGAN WELDING 2*\n`;
+    let teks = `📊 *LAPORAN REKAPITULASI KAS SPREADSHEET WELDING 2*\n`;
     teks += `📅 *Periode:* ${labelPeriode}\n`;
     teks += `━━━━━━━━━━━━━━━━━━━━━\n`;
-    teks += `💰 *Saldo Kas Bersih:* ${formatRp(saldoAkhir)}\n`;
-    teks += `📥 *Total Penerimaan:* ${formatRp(totalMasuk)}\n`;
-    teks += `📤 *Total Pengeluaran:* ${formatRp(totalKeluar)}\n`;
-    teks += `📈 *Rasio Surplus:* ${rasioSurplus}%\n`;
+    teks += `💰 *Saldo Kas:* ${formatRp(saldoAkhir)}\n`;
+    teks += `📥 *Pemasukan:* ${formatRp(totalMasuk)}\n`;
+    teks += `📤 *Pengeluaran:* ${formatRp(totalKeluar)}\n`;
     teks += `📋 *Jumlah Transaksi:* ${processedData.length} baris\n`;
     teks += `━━━━━━━━━━━━━━━━━━━━━\n`;
-    teks += `*3 Catatan Arus Kas Terakhir:*\n`;
+    teks += `*Catatan Arus Kas Spreadsheet Terkini:*\n`;
 
-    const recent = [...processedData].reverse().slice(0, 3);
-    recent.forEach((t, i) => {
-      const mark = t.tipe === 'masuk' ? '🟢 (+)' : '🔴 (-)';
-      teks += `${i + 1}. ${mark} ${t.keterangan}: *${formatRp(t.nominal)}* (${formatTanggalIndo(t.tanggal)})\n`;
+    const reversed = [...processedData].reverse().slice(0, 5);
+    reversed.forEach((r, idx) => {
+      const mark = r.tipe === 'masuk' ? '🟢 (+)' : '🔴 (-)';
+      teks += `${idx + 1}. ${mark} ${r.keterangan}: *${formatRp(r.nominal)}* (${r.display})\n`;
     });
     teks += `━━━━━━━━━━━━━━━━━━━━━\n`;
-    teks += `_Diverifikasi resmi oleh Pengurus Welding 2_\n`;
+    teks += `_Sinkronisasi langsung Google Spreadsheet Welding 2_\n`;
 
     if (navigator.clipboard) {
       navigator.clipboard.writeText(teks).then(() => {
-        triggerToast('Ringkasan format WA berhasil disalin!');
-      }).catch(() => {
-        triggerToast('Gagal menyalin ringkasan', 'error');
+        showToast('Ringkasan WA berhasil disalin ke clipboard!');
       });
     }
   }
@@ -246,7 +349,7 @@
     let csv = 'No,Tanggal,Tipe,Kategori,Keterangan,Penerimaan (Rp),Pengeluaran (Rp),Saldo Berjalan (Rp)\n';
     processedData.forEach(r => {
       const cleanKet = `"${r.keterangan.replace(/"/g, '""')}"`;
-      csv += `${r.no},${r.tanggal},${r.tipe},${r.kategori},${cleanKet},${r.masuk},${r.keluar},${r.runningBalance}\n`;
+      csv += `${r.no},${r.ymd},${r.tipe},${r.catLabel},${cleanKet},${r.masuk},${r.keluar},${r.runningBalance}\n`;
     });
     csv += `,,,TOTAL AKHIR,,${totalMasuk},${totalKeluar},${saldoAkhir}\n`;
 
@@ -254,15 +357,15 @@
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `Laporan_Keuangan_Welding_${Date.now()}.csv`;
+    a.download = `Laporan_Kas_Spreadsheet_${Date.now()}.csv`;
     a.click();
     URL.revokeObjectURL(url);
-    triggerToast('Spreadsheet CSV berhasil diunduh');
+    showToast('File CSV berhasil diunduh');
   }
 </script>
 
 <div class="interactive-app">
-  <!-- FLOATING TOAST -->
+  <!-- TOAST NOTIFICATION -->
   {#if toastActive}
     <div class="toast-bubble {toastType}">
       <span>{toastType === 'success' ? '✨' : '⚠️'}</span>
@@ -270,14 +373,19 @@
     </div>
   {/if}
 
-  <!-- TOP APP NAVIGATION BAR (NO-PRINT) -->
+  <!-- TOP NAVIGATION BAR (NO-PRINT) -->
   <nav class="top-navbar no-print">
     <div class="nav-container">
       <div class="brand-group">
         <div class="brand-logo">⚡</div>
         <div>
-          <div class="brand-title">WELDING 2 FINANCIAL</div>
-          <div class="brand-tag">Sistem Rekapitulasi Kas & Dokumen A4</div>
+          <div class="brand-title">WELDING 2 KAS</div>
+          <div class="sync-status-row">
+            <span class="sync-dot {isSyncing ? 'pulsing' : ''}"></span>
+            <span class="sync-label">
+              {isSyncing ? 'Menghubungkan Spreadsheet...' : `Spreadsheet Live (${lastSyncTime})`}
+            </span>
+          </div>
         </div>
       </div>
 
@@ -299,10 +407,19 @@
 
       <!-- TOP ACTIONS -->
       <div class="nav-actions">
-        <button class="action-btn btn-print-quick" onclick={cetakDokumen} title="Cetak Lembar A4 Sekarang">
+        <button
+          class="action-btn btn-refresh"
+          onclick={fetchSpreadsheetData}
+          title="Tarik Data Terbaru dari Spreadsheet"
+          disabled={isSyncing}
+        >
+          <span class={isSyncing ? 'spin-icon' : ''}>🔄</span>
+          <span>Refresh</span>
+        </button>
+        <button class="action-btn btn-print-quick" onclick={cetakDokumen} title="Cetak Lembar A4">
           🖨️ Cetak A4
         </button>
-        <button class="action-btn btn-add-quick" onclick={() => showModal = true} title="Tambah Catatan Kas">
+        <button class="action-btn btn-add-quick" onclick={() => showModal = true} title="Catat Transaksi">
           ➕ Catat Kas
         </button>
       </div>
@@ -317,18 +434,18 @@
       <div class="screen-container">
         <!-- HERO WEALTH & STATS BANNER -->
         <section class="hero-balance-section">
-          <!-- CARD 1: SALDO UTAMA (HERO) -->
+          <!-- CARD 1: SALDO UTAMA SPREADSHEET -->
           <div class="hero-card hero-balance-card">
             <div class="card-glass-glow"></div>
             <div class="hero-card-header">
-              <span class="pill-badge-gold">💼 Total Saldo Kas Tersedia</span>
+              <span class="pill-badge-gold">📊 Saldo Kas Spreadsheet</span>
               <span class="live-date-pill">📅 {tanggalHariIni}</span>
             </div>
             <div class="balance-number">{formatRp(saldoAkhir)}</div>
             <div class="hero-card-footer">
-              <div class="ratio-badge">
-                <span class="ratio-dot"></span>
-                <span>Efisiensi Kas: <strong>{rasioSurplus >= 0 ? `+${rasioSurplus}% Surplus` : `${rasioSurplus}% Defisit`}</strong></span>
+              <div class="sheet-sync-badge">
+                <span class="dot-online"></span>
+                <span>Terhubung: <strong>Google Spreadsheet DKM</strong></span>
               </div>
               <div class="action-mini-group">
                 <button class="mini-btn" onclick={salinWA} title="Salin Ringkasan ke WhatsApp">📱 Salin WA</button>
@@ -348,7 +465,7 @@
             <div class="stat-bar-container">
               <div class="stat-bar-fill income-bar" style="width: {masukPercent}%;"></div>
             </div>
-            <span class="stat-sub">{masukPercent.toFixed(1)}% dari total arus transaksi</span>
+            <span class="stat-sub">{masukPercent.toFixed(1)}% rasio arus masuk</span>
           </div>
 
           <!-- CARD 3: PENGELUARAN -->
@@ -362,7 +479,7 @@
             <div class="stat-bar-container">
               <div class="stat-bar-fill expense-bar" style="width: {keluarPercent}%;"></div>
             </div>
-            <span class="stat-sub">{keluarPercent.toFixed(1)}% dari total arus transaksi</span>
+            <span class="stat-sub">{keluarPercent.toFixed(1)}% rasio pengeluaran</span>
           </div>
         </section>
 
@@ -372,7 +489,7 @@
             <span class="search-glyph">🔍</span>
             <input
               type="text"
-              placeholder="Cari transaksi, infaq, alat las, kopi..."
+              placeholder="Cari transaksi: kopi, snack, air minum, premi..."
               bind:value={searchQuery}
             />
             {#if searchQuery}
@@ -392,13 +509,13 @@
               class="filter-chip chip-in {filterType === 'masuk' ? 'active' : ''}"
               onclick={() => filterType = 'masuk'}
             >
-              📥 Pemasukan
+              📥 Masuk
             </button>
             <button
               class="filter-chip chip-out {filterType === 'keluar' ? 'active' : ''}"
               onclick={() => filterType = 'keluar'}
             >
-              📤 Pengeluaran
+              📤 Keluar
             </button>
           </div>
 
@@ -414,7 +531,7 @@
 
           <div class="quick-view-switch">
             <button class="btn-preview-switch" onclick={() => currentTab = 'preview'}>
-              Lihat Lembar Cetak A4 ➔
+              Pratinjau Cetak A4 ➔
             </button>
           </div>
         </section>
@@ -423,12 +540,12 @@
         <section class="transactions-view">
           <div class="view-header">
             <div>
-              <h2 class="view-title">Daftar Rekapitulasi Kas</h2>
-              <p class="view-subtitle">Transaksi terlacak pada periode ini: {processedData.length} transaksi</p>
+              <h2 class="view-title">Data Rekapitulasi Spreadsheet</h2>
+              <p class="view-subtitle">Menampilkan {processedData.length} catatan transaksi dari spreadsheet lama</p>
             </div>
             <div class="header-tools">
-              <button class="tool-btn" onclick={resetBawaan} title="Kembalikan Contoh Bawaan">
-                ↺ Muat Ulang Data
+              <button class="tool-btn" onclick={fetchSpreadsheetData} disabled={isSyncing}>
+                {isSyncing ? 'Memuat...' : '🔄 Sinkronkan Ulang'}
               </button>
             </div>
           </div>
@@ -453,7 +570,7 @@
                       <div class="empty-emoji">🔍</div>
                       <p>Tidak ada transaksi yang cocok dengan filter atau kata kunci pencarian.</p>
                       <button class="btn-clear-filter" onclick={() => { searchQuery = ''; filterType = 'all'; filterMonth = 'all'; }}>
-                        Hapus Semua Filter
+                        Tampilkan Semua Transaksi
                       </button>
                     </td>
                   </tr>
@@ -461,11 +578,11 @@
                   {#each processedData as item}
                     <tr class="tx-row {item.tipe}">
                       <td class="text-center font-mono num-sub">{item.no}</td>
-                      <td class="font-mono text-date">{formatTanggalIndo(item.tanggal)}</td>
+                      <td class="font-mono text-date">{item.display}</td>
                       <td>
                         <span class="cat-pill {item.tipe}">
-                          <span class="cat-icon">{categoryMeta[item.kategori]?.icon || '📌'}</span>
-                          <span>{item.kategori}</span>
+                          <span class="cat-icon">{item.catIcon}</span>
+                          <span>{item.catLabel}</span>
                         </span>
                       </td>
                       <td class="desc-cell font-medium">{item.keterangan}</td>
@@ -493,7 +610,7 @@
 
   <!-- ==============================================================
        VIEW 2: PRATINJAU & LEMBAR CETAK DOKUMEN RESMI A4
-       (Tetap aktif dan dicetak saat @media print)
+       (Data sinkron persis dari spreadsheet yang sama)
        ============================================================== -->
   <section class="print-document-screen {currentTab !== 'preview' ? 'hidden-on-screen' : ''}">
     <!-- PREVIEW ACTION BAR (NO-PRINT) -->
@@ -501,11 +618,11 @@
       <div class="toolbar-content">
         <div class="toolbar-info">
           <span class="paper-badge">📄 FORMAT CETAK A4</span>
-          <span>Dokumen standar resmi siap dicetak atau disimpan sebagai PDF.</span>
+          <span>Laporan rekapitulasi data kas spreadsheet format resmi A4.</span>
         </div>
         <div class="toolbar-btns">
           <button class="btn-action-primary" onclick={cetakDokumen}>
-            🖨️ Cetak Halaman Ini
+            🖨️ Cetak Lembar Ini
           </button>
           <button class="btn-action-secondary" onclick={() => currentTab = 'dashboard'}>
             📱 Kembali ke Dashboard
@@ -520,12 +637,12 @@
         <!-- KOP SURAT FORMAL -->
         <header class="kop-header">
           <div class="kop-emblem-box">
-            <span class="kop-icon">⚙️</span>
+            <span class="kop-icon">🕌</span>
           </div>
           <div class="kop-info">
             <h1 class="kop-title">MAJELIS SHOLAWAT & UNIT SOSIAL WELDING 2</h1>
-            <p class="kop-subtitle">Divisi Fabrikasi Industri & Workshop Welding 2 • Pengurus Kas & Kesejahteraan Anggota</p>
-            <p class="kop-detail">Bekasi - Jawa Barat • Dokumen Resmi Pembukuan & Laporan Pertanggungjawaban</p>
+            <p class="kop-subtitle">Pengurus Kas Sholawat & Kesejahteraan Jamaah Welding 2</p>
+            <p class="kop-detail">Kawasan Industri Bekasi • Laporan Rekapitulasi Kas Resmi Bersumber dari Spreadsheet</p>
           </div>
         </header>
 
@@ -538,7 +655,7 @@
           
           <div class="doc-metadata-bar">
             <div><span>No. Dokumen:</span> <strong>{nomorDokumen}</strong></div>
-            <div><span>Status Pembukuan:</span> <strong>LENGKAP & SEIMBANG</strong></div>
+            <div><span>Sumber Data:</span> <strong>GOOGLE SPREADSHEET (TERVERIFIKASI)</strong></div>
             <div><span>Tanggal Terbit:</span> <strong>{tanggalHariIni}</strong></div>
           </div>
         </div>
@@ -548,17 +665,17 @@
           <div class="summary-box-sheet box-in">
             <div class="sb-label">TOTAL PENERIMAAN (MASUK)</div>
             <div class="sb-value text-emerald">{formatRp(totalMasuk)}</div>
-            <div class="sb-sub">Akumulasi seluruh sumber dana</div>
+            <div class="sb-sub">Akumulasi penerimaan kas</div>
           </div>
           <div class="summary-box-sheet box-out">
             <div class="sb-label">TOTAL PENGELUARAN (KELUAR)</div>
             <div class="sb-value text-rose">{formatRp(totalKeluar)}</div>
-            <div class="sb-sub">Total pengeluaran operasional</div>
+            <div class="sb-sub">Akumulasi pengeluaran kas</div>
           </div>
           <div class="summary-box-sheet box-bal">
             <div class="sb-label">SISA SALDO KAS BERJALAN</div>
             <div class="sb-value text-dark">{formatRp(saldoAkhir)}</div>
-            <div class="sb-sub">Posisi saldo kas terkini</div>
+            <div class="sb-sub">Posisi saldo kas akhir periode</div>
           </div>
         </div>
 
@@ -569,7 +686,7 @@
               <tr>
                 <th style="width: 32px;">NO</th>
                 <th style="width: 95px;">TANGGAL</th>
-                <th style="width: 105px;">KATEGORI</th>
+                <th style="width: 110px;">KATEGORI</th>
                 <th>KETERANGAN TRANSAKSI</th>
                 <th style="width: 95px;" class="text-right">PENERIMAAN</th>
                 <th style="width: 95px;" class="text-right">PENGELUARAN</th>
@@ -585,9 +702,9 @@
                 {#each processedData as r}
                   <tr>
                     <td class="text-center font-mono">{r.no}</td>
-                    <td class="text-center font-mono">{formatTanggalIndo(r.tanggal)}</td>
+                    <td class="text-center font-mono">{r.display}</td>
                     <td>
-                      <span class="sheet-cat-badge {r.tipe}">{r.kategori}</span>
+                      <span class="sheet-cat-badge {r.tipe}">{r.catLabel}</span>
                     </td>
                     <td class="desc-sheet font-medium">{r.keterangan}</td>
                     <td class="text-right font-mono val-in">
@@ -618,9 +735,9 @@
         <div class="sheet-notes">
           <h4>Ketentuan & Validasi Dokumen:</h4>
           <ul>
-            <li>Laporan ini disusun dengan pencatatan ganda dan sah sebagai dokumen pertanggungjawaban kas resmi.</li>
-            <li>Seluruh pengeluaran dan pemasukan telah melalui verifikasi nota, kwitansi, atau bukti transaksi perbankan.</li>
-            <li>Sisa saldo kas tercatat telah disesuaikan dengan fisik kas tunai dan rekening bersama pengurus.</li>
+            <li>Data laporan ini disinkronkan langsung dari spreadsheet resmi Majelis Sholawat Welding 2.</li>
+            <li>Pengeluaran konsumsi jamaah dan operasional dicatat secara transparan dan dapat dipertanggungjawabkan.</li>
+            <li>Dokumen ini sah sebagai rekapitulasi cetak A4 kas internal untuk diketahui seluruh anggota.</li>
           </ul>
         </div>
 
@@ -645,7 +762,7 @@
 
         <!-- FOOTER LEMBAR -->
         <div class="sheet-footer-line">
-          <span>Sistem Laporan Keuangan Divisi Welding 2 • Standar Cetak A4</span>
+          <span>Sistem Laporan Kas Welding 2 • Standar Cetak A4</span>
           <span>Dokumen Resmi • Halaman 1 dari 1</span>
         </div>
       </article>
@@ -653,7 +770,7 @@
   </section>
 
   <!-- ==============================================================
-       MODAL POPUP TAMBAH TRANSAKSI (INTERAKTIF & CEPAT)
+       MODAL POPUP TAMBAH TRANSAKSI
        ============================================================== -->
   {#if showModal}
     <!-- svelte-ignore a11y_click_events_have_key_events a11y_no_noninteractive_element_interactions -->
@@ -663,29 +780,28 @@
           <div class="modal-box-title">
             <span class="m-icon">✍️</span>
             <div>
-              <h3>Catat Transaksi Keuangan</h3>
-              <p>Tambahkan penerimaan atau pengeluaran kas baru</p>
+              <h3>Catat Transaksi Spreadsheet</h3>
+              <p>Tambahkan transaksi baru dan simpan ke database Google Sheets</p>
             </div>
           </div>
           <button class="m-close-btn" onclick={() => showModal = false}>✕</button>
         </div>
 
         <form onsubmit={submitTambah} class="modal-box-body">
-          <!-- TIPE TABS -->
           <div class="type-selector-tab">
             <button
               type="button"
               class="type-tab-btn {formTipe === 'masuk' ? 'active-in' : ''}"
-              onclick={() => { formTipe = 'masuk'; formKategori = 'Infaq Rutin'; }}
+              onclick={() => { formTipe = 'masuk'; formKategori = 'infaq_rutin'; }}
             >
-              📥 Penerimaan (Masuk)
+              📥 Penerimaan (Infaq / Masuk)
             </button>
             <button
               type="button"
               class="type-tab-btn {formTipe === 'keluar' ? 'active-out' : ''}"
-              onclick={() => { formTipe = 'keluar'; formKategori = 'Konsumsi'; }}
+              onclick={() => { formTipe = 'keluar'; formKategori = 'konsumsi'; }}
             >
-              📤 Pengeluaran (Keluar)
+              📤 Pengeluaran (Konsumsi / Keluar)
             </button>
           </div>
 
@@ -699,16 +815,15 @@
               <label for="tx-cat">Kategori</label>
               <select id="tx-cat" bind:value={formKategori}>
                 {#if formTipe === 'masuk'}
-                  <option value="Infaq Rutin">🕌 Infaq Rutin Sholawat</option>
-                  <option value="Donatur">🤲 Donatur / Hamba Allah</option>
-                  <option value="Kas Masuk">💼 Kas Masuk Line Welding</option>
-                  <option value="Penerimaan Lain">📥 Penerimaan Lain</option>
+                  <option value="infaq_rutin">🕌 Infaq Sholawat</option>
+                  <option value="donatur">🤲 Donatur / Hamba Allah</option>
+                  <option value="masuk_lain">📥 Pemasukan Lain</option>
                 {:else}
-                  <option value="Konsumsi">☕ Konsumsi Jamaah & Kopi</option>
-                  <option value="Operasional">⚙️ Operasional Alat & Gas</option>
-                  <option value="Bisyaroh">👳 Bisyaroh Habaib / Guru</option>
-                  <option value="Maintenance">🛠️ Service Mesin Las</option>
-                  <option value="Sosial">🤝 Santunan Sosial</option>
+                  <option value="konsumsi">☕ Konsumsi & Kopi</option>
+                  <option value="bisyaroh">👳 Bisyaroh Habaib/Guru</option>
+                  <option value="operasional">⚙️ Operasional Las & Alat</option>
+                  <option value="maintenance">🛠️ Service Mesin</option>
+                  <option value="sosial">🤝 Sosial & Santunan</option>
                 {/if}
               </select>
             </div>
@@ -719,7 +834,7 @@
             <input
               id="tx-desc"
               type="text"
-              placeholder="Misal: Infaq Jumat Shift Pagi, Beli sarung tangan..."
+              placeholder="Contoh: Pembelian Kopi, Snack, Infaq Jumat..."
               bind:value={formKeterangan}
               required
             />
@@ -732,17 +847,15 @@
               type="number"
               min="1000"
               step="1000"
-              placeholder="Contoh: 150000"
+              placeholder="Contoh: 50000"
               bind:value={formNominal}
               required
             />
-            <!-- QUICK CHIP BUTTONS -->
             <div class="nominal-chips-bar">
               <span class="chips-label">Cepat:</span>
-              <button type="button" class="chip-add" onclick={() => tambahChipNominal(20000)}>+20rb</button>
-              <button type="button" class="chip-add" onclick={() => tambahChipNominal(50000)}>+50rb</button>
-              <button type="button" class="chip-add" onclick={() => tambahChipNominal(100000)}>+100rb</button>
-              <button type="button" class="chip-add" onclick={() => tambahChipNominal(500000)}>+500rb</button>
+              <button type="button" class="chip-add" onclick={() => formNominal = String((Number(formNominal) || 0) + 20000)}>+20rb</button>
+              <button type="button" class="chip-add" onclick={() => formNominal = String((Number(formNominal) || 0) + 50000)}>+50rb</button>
+              <button type="button" class="chip-add" onclick={() => formNominal = String((Number(formNominal) || 0) + 100000)}>+100rb</button>
               <button type="button" class="chip-reset" onclick={() => formNominal = ''}>↺ Hapus</button>
             </div>
           </div>
@@ -752,7 +865,7 @@
               Batal
             </button>
             <button type="submit" class="btn-submit {formTipe}">
-              💾 Simpan Transaksi
+              💾 Simpan ke Spreadsheet
             </button>
           </div>
         </form>
@@ -762,9 +875,6 @@
 </div>
 
 <style>
-  /* ==============================================================
-     DESIGN SYSTEM & MODERN INTERACTIVE STYLES
-     ============================================================== */
   .interactive-app {
     min-height: 100vh;
     background: #f8fafc;
@@ -772,7 +882,7 @@
     font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
   }
 
-  /* FLOATING TOAST NOTIFICATION */
+  /* TOAST NOTIFICATION */
   .toast-bubble {
     position: fixed;
     top: 24px;
@@ -790,9 +900,7 @@
     font-size: 13px;
     animation: slideDown 0.25s cubic-bezier(0.16, 1, 0.3, 1);
   }
-  .toast-bubble.error {
-    background: #be123c;
-  }
+  .toast-bubble.error { background: #be123c; }
   @keyframes slideDown {
     from { opacity: 0; transform: translateY(-12px); }
     to { opacity: 1; transform: translateY(0); }
@@ -844,11 +952,33 @@
     letter-spacing: 0.5px;
   }
 
-  .brand-tag {
+  .sync-status-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
     font-size: 11px;
-    color: #64748b;
+    color: #059669;
     font-weight: 600;
   }
+
+  .sync-dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: #10b981;
+  }
+  .sync-dot.pulsing {
+    background: #f59e0b;
+    box-shadow: 0 0 8px #f59e0b;
+    animation: pulse 1s infinite;
+  }
+  @keyframes pulse { 0% { opacity: 0.4; } 50% { opacity: 1; } 100% { opacity: 0.4; } }
+
+  .spin-icon {
+    display: inline-block;
+    animation: rotate 1s linear infinite;
+  }
+  @keyframes rotate { 100% { transform: rotate(360deg); } }
 
   /* TABS PILL SWITCHER */
   .tab-pill-group {
@@ -878,10 +1008,6 @@
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
   }
 
-  .tab-pill:hover:not(.active) {
-    color: #0f172a;
-  }
-
   /* TOP ACTION BUTTONS */
   .nav-actions {
     display: flex;
@@ -890,7 +1016,7 @@
   }
 
   .action-btn {
-    padding: 9px 18px;
+    padding: 9px 16px;
     border-radius: 10px;
     font-size: 13px;
     font-weight: 700;
@@ -900,6 +1026,15 @@
     display: inline-flex;
     align-items: center;
     gap: 6px;
+  }
+
+  .btn-refresh {
+    background: #f1f5f9;
+    color: #334155;
+    border: 1px solid #cbd5e1;
+  }
+  .btn-refresh:hover:not(:disabled) {
+    background: #e2e8f0;
   }
 
   .btn-print-quick {
@@ -922,7 +1057,7 @@
   }
 
   /* ==============================================================
-     DASHBOARD SCREEN (MODERN FINTECH STYLE)
+     DASHBOARD SCREEN
      ============================================================== */
   .dashboard-screen {
     padding: 24px 20px 60px 20px;
@@ -936,7 +1071,6 @@
     gap: 22px;
   }
 
-  /* HERO CARDS GRID */
   .hero-balance-section {
     display: grid;
     grid-template-columns: 2fr 1.1fr 1.1fr;
@@ -951,13 +1085,8 @@
     box-shadow: 0 4px 15px rgba(15, 23, 42, 0.03);
     position: relative;
     overflow: hidden;
-    transition: transform 0.2s, box-shadow 0.2s;
-  }
-  .hero-card:hover {
-    box-shadow: 0 8px 25px rgba(15, 23, 42, 0.06);
   }
 
-  /* MAIN WEALTH CARD (DARK EMERALD GRADIENT) */
   .hero-balance-card {
     background: linear-gradient(135deg, #064e3b 0%, #022c22 100%);
     color: #ffffff;
@@ -1019,7 +1148,7 @@
     padding-top: 14px;
   }
 
-  .ratio-badge {
+  .sheet-sync-badge {
     display: flex;
     align-items: center;
     gap: 6px;
@@ -1027,7 +1156,7 @@
     color: #d1fae5;
   }
 
-  .ratio-dot {
+  .dot-online {
     width: 8px;
     height: 8px;
     border-radius: 50%;
@@ -1051,11 +1180,8 @@
     cursor: pointer;
     transition: background 0.15s;
   }
-  .mini-btn:hover {
-    background: rgba(255, 255, 255, 0.25);
-  }
+  .mini-btn:hover { background: rgba(255, 255, 255, 0.25); }
 
-  /* STAT MINI CARDS */
   .stat-top {
     display: flex;
     justify-content: space-between;
@@ -1122,7 +1248,7 @@
     font-weight: 600;
   }
 
-  /* INTERACTIVE FILTER BAR */
+  /* FILTER BAR */
   .interactive-filter-bar {
     background: #ffffff;
     border: 1px solid #e2e8f0;
@@ -1159,7 +1285,6 @@
     font-size: 13px;
     color: #0f172a;
     outline: none;
-    transition: border 0.15s;
   }
   .search-box input:focus {
     border-color: #059669;
@@ -1232,7 +1357,6 @@
     font-size: 12px;
     font-weight: 700;
     cursor: pointer;
-    transition: all 0.15s;
   }
   .btn-preview-switch:hover {
     background: #059669;
@@ -1279,7 +1403,7 @@
     font-weight: 600;
     cursor: pointer;
   }
-  .tool-btn:hover {
+  .tool-btn:hover:not(:disabled) {
     background: #f8fafc;
     color: #0f172a;
   }
@@ -1370,7 +1494,7 @@
   }
 
   /* ==============================================================
-     VIEW 2: PRATINJAU DOKUMEN CETAK A4 (SCREEN VIEW)
+     VIEW 2: PRATINJAU DOKUMEN CETAK A4
      ============================================================== */
   .print-document-screen {
     padding-bottom: 60px;
@@ -1421,11 +1545,8 @@
     font-size: 12.5px;
     font-weight: 800;
     cursor: pointer;
-    box-shadow: 0 2px 8px rgba(16, 185, 129, 0.3);
   }
-  .btn-action-primary:hover {
-    background: #34d399;
-  }
+  .btn-action-primary:hover { background: #34d399; }
 
   .btn-action-secondary {
     background: rgba(255, 255, 255, 0.15);
@@ -1438,7 +1559,6 @@
     cursor: pointer;
   }
 
-  /* PAPER SHEET CONTAINER */
   .a4-sheet-wrapper {
     display: flex;
     justify-content: center;
@@ -1459,7 +1579,6 @@
     line-height: 1.4;
   }
 
-  /* KOP SURAT FORMAL */
   .kop-header {
     display: flex;
     align-items: center;
@@ -1510,7 +1629,6 @@
     margin-bottom: 14px;
   }
 
-  /* DOC TITLE BLOCK */
   .doc-title-block {
     text-align: center;
     margin-bottom: 14px;
@@ -1540,7 +1658,6 @@
     color: #475569;
   }
 
-  /* SUMMARY PILLS IN SHEET */
   .summary-pills-row {
     display: grid;
     grid-template-columns: 1fr 1fr 1fr;
@@ -1575,7 +1692,6 @@
     color: #64748b;
   }
 
-  /* SHEET TABLE */
   .sheet-table-wrap {
     flex: 1;
     margin-bottom: 12px;
@@ -1619,7 +1735,6 @@
     border-top: 2px solid #0f172a;
   }
 
-  /* SHEET NOTES */
   .sheet-notes {
     border: 1px dashed #cbd5e1;
     border-radius: 4px;
@@ -1640,7 +1755,6 @@
     padding-left: 14px;
   }
 
-  /* SIGNATURES */
   .sheet-signatures {
     display: flex;
     justify-content: space-between;
@@ -1668,9 +1782,7 @@
     color: #94a3b8;
   }
 
-  /* ==============================================================
-     MODAL POPUP TAMBAH TRANSAKSI
-     ============================================================== */
+  /* MODAL */
   .modal-overlay {
     position: fixed;
     top: 0;
@@ -1693,11 +1805,6 @@
     border-radius: 20px;
     box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
     overflow: hidden;
-    animation: scaleUp 0.2s cubic-bezier(0.16, 1, 0.3, 1);
-  }
-  @keyframes scaleUp {
-    from { opacity: 0; transform: scale(0.95); }
-    to { opacity: 1; transform: scale(1); }
   }
 
   .modal-box-header {
@@ -1714,9 +1821,7 @@
     align-items: center;
     gap: 12px;
   }
-  .m-icon {
-    font-size: 26px;
-  }
+  .m-icon { font-size: 26px; }
   .modal-box-title h3 {
     margin: 0;
     font-size: 15px;
@@ -1743,7 +1848,6 @@
     gap: 14px;
   }
 
-  /* TABS MASUK/KELUAR SELECTOR */
   .type-selector-tab {
     display: grid;
     grid-template-columns: 1fr 1fr;
@@ -1826,9 +1930,7 @@
     padding: 4px 8px;
     cursor: pointer;
   }
-  .chip-add:hover {
-    background: #e2e8f0;
-  }
+  .chip-add:hover { background: #e2e8f0; }
   .chip-reset {
     background: none;
     border: none;
@@ -1866,9 +1968,6 @@
   .btn-submit.masuk { background: #059669; }
   .btn-submit.keluar { background: #e11d48; }
 
-  /* ==============================================================
-     HELPER CLASSES
-     ============================================================== */
   .text-center { text-align: center; }
   .text-right { text-align: right; }
   .font-mono { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; }
@@ -1877,9 +1976,7 @@
   .text-date { font-size: 12px; color: #475569; }
   .num-sub { color: #94a3b8; font-weight: 600; }
 
-  /* ==============================================================
-     MEDIA CETAK (A4 STRICT PRINT RULES)
-     ============================================================== */
+  /* MEDIA CETAK A4 */
   @page {
     size: A4 portrait;
     margin: 10mm 12mm 10mm 12mm;
@@ -1942,7 +2039,6 @@
     }
   }
 
-  /* RESPONSIVE DESIGN (MOBILE / TABLET) */
   @media screen and (max-width: 960px) {
     .hero-balance-section {
       grid-template-columns: 1fr;
